@@ -1,0 +1,83 @@
+package erm;
+public class dx{
+    public static void main(String[] args) {
+        vivo v1 = new vivo("Practice Form", 600, 400);
+        v1.addbutton("Insert", 100, 200, "enter");
+        v1.addbutton("Delete", 270, 200, "Remove");
+        v1.addbutton("Update", 400, 200, "UPD");
+        v1.addbutton("Show", 400, 250, "Detail");
+        v1.setVisible(true);
+    }
+}
+package er;
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+public class vivo extends JFrame implements ActionListener,MouseListener{
+	JLabel jl;
+    JTextField jt;
+    JTextField jtn;
+    JButton jb;
+    JRadioButton jr;
+    JPanel jp;
+    public vivo(String name, int x, int y){
+		super(name);
+        setSize(x, y);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(null);
+        getContentPane().setBackground(new java.awt.Color(65, 105, 225));
+	}
+	public void addlabel(String name, int x, int y) {
+        jl = new JLabel(name);
+        jl.setBounds(x, y, 300, 20);
+        if (jp != null) {
+            jp.add(jl);
+        } else {
+            add(jl);
+        }
+        refresh();
+    }
+    public void addbutton(String name, int x, int y,String action) {
+        jb = new JButton(name);
+        jb.setBounds(x, y, 120, 30);
+        jb.setBackground(new Color(30, 144, 255));
+        jb.setActionCommand(action);
+        jb.addActionListener(this);	
+        jb.addMouseListener(this);
+        if (jp != null) {
+            jp.add(jb);
+        } else {
+            add(jb);
+        }
+        refresh();
+    }
+    public void refresh() {
+        repaint();
+        revalidate();
+    }
+    public void actionPerformed(ActionEvent e)
+    {
+    	if(e.getActionCommand().equals("enter"))
+    	{
+    		JOptionPane.showMessageDialog(this, "Enter button pressed!.");
+    	}
+    }
+    @Override public void mouseClicked(MouseEvent e) {}
+    @Override public void mousePressed(MouseEvent e) {}
+    @Override public void mouseReleased(MouseEvent e) {}
+    @Override public void mouseEntered(MouseEvent e)
+    {
+    	if(e.getSource() instanceof JButton)
+    	{
+        JButton hoveredButton = (JButton) e.getSource();
+        hoveredButton.setBackground(new Color(106, 90, 205));
+    	}	
+    }
+    @Override public void mouseExited(MouseEvent e)
+    {
+    	if (e.getSource() instanceof JButton)
+    	{
+            JButton hoveredButton = (JButton) e.getSource();
+            hoveredButton.setBackground(new Color(30, 144, 255));
+        }
+    }
