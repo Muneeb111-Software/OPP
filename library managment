@@ -1,0 +1,310 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.sql.*;
+
+
+class Book {
+    private int id;
+    private String title, author, publisher;
+    private boolean available;
+
+    public Book(int id, String title, String author, String publisher, boolean available) {
+        this.id = id;
+        this.title = title;
+        this.author = author;
+        this.publisher = publisher;
+        this.available = available;
+    }
+
+    public int getId() { return id; }
+    public String getTitle() { return title; }
+    public String getAuthor() { return author; }
+    public String getPublisher() { return publisher; }
+    public boolean isAvailable() { return available; }
+    public void setAvailable(boolean available) { this.available = available; }
+}
+
+
+class Member {
+    protected int id;
+    protected String name;
+    protected String type;
+
+    public Member(int id, String name, String type) {
+        this.id = id;
+        this.name = name;
+        this.type = type;
+    }
+
+    public int getId() { return id; }
+    public String getName() { return name; }
+    public String getType() { return type; }
+}
+
+class StudentMember extends Member {
+    public StudentMember(int id, String name) {
+        super(id, name, "Student");
+    }
+}
+
+class Librarian extends Member {
+    public Librarian(int id, String name) {
+        super(id, name, "Librarian");
+    }
+}
+
+
+class DBConnection {
+    public static Connection getConnection() {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            return DriverManager.getConnection(
+                "jdbc:mysql://localhost:3306/library_db",
+                "root", "123456"
+            );
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "DB Error: " + e.getMessage());
+            return null;
+        }
+    }
+}
+
+
+class LoginFrame extends JFrame {
+    JTextField usernameField;
+    JPasswordField passwordField;
+
+    public LoginFrame() {
+        setTitle("Login");
+        setSize(300, 150);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        JPanel panel = new JPanel(new GridLayout(3, 2));
+        panel.add(new JLabel("Username:"));
+        usernameField = new JTextField();
+        panel.add(usernameField);
+        panel.add(new JLabel("Password:"));
+        passwordField = new JPasswordField();
+        panel.add(passwordField);
+        JButton loginBtn = new JButton("Login");
+        panel.add(loginBtn);
+        add(panel);
+
+        loginBtn.addActionListener(e -> {
+            String username = usernameField.getText();
+            String password = new String(passwordField.getPassword());
+
+            try (Connection conn = DBConnection.getConnection()) {
+                PreparedStatement ps = conn.prepareStatement(
+                    "SELECT * FROM users WHERE username = ? AND password = ?"
+                );
+                ps.setString(1, username);
+                ps.setString(2, password);
+                ResultSet rs = ps.executeQuery();
+
+                if (rs.next()) {
+                    dispose();
+                    new LibrarySystem();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Login failed!");
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage());
+            }
+        });
+
+        setVisible(true);
+    }
+}
+
+public class LibrarySystem extends JFrame {
+    JTable bookTable;
+    DefaultListModel<String> memberList;
+    JTextField titleField, authorField, publisherField, memberNameField;
+    JButton addBookBtn, addMemberBtn;
+
+    public LibrarySystem() {
+        setTitle("Smart Library Management System");
+        setSize(800, 600);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        JTabbedPane tabs = new JTabbedPane();
+
+        
+        JPanel bookPanel = new JPanel(new BorderLayout());
+        bookTable = new JTable();
+        loadBooks();
+        bookPanel.add(new JScrollPane(bookTable), BorderLayout.CENTER);
+
+        JPanel bookForm = new JPanel();
+        titleField = new JTextField(10);
+        authorField = new JTextField(10);
+        publisherField = new JTextField(10);
+        addBookBtn = new JButton("Add Book");
+        bookForm.add(new JLabel("Title:")); bookForm.add(titleField);
+        bookForm.add(new JLabel("Author:")); bookForm.add(authorField);
+        bookForm.add(new JLabel("Publisher:")); bookForm.add(publisherField);
+        bookForm.add(addBookBtn);
+        bookPanel.add(bookForm, BorderLayout.SOUTH);
+        addBookBtn.addActionListener(e -> addBook());
+
+        tabs.add("Books", bookPanel);
+
+       
+        JPanel memberPanel = new JPanel(new BorderLayout());
+        memberList = new DefaultListModel<>();
+        loadMembers();
+        JList<String> list = new JList<>(memberList);
+        memberPanel.add(new JScrollPane(list), BorderLayout.CENTER);
+
+        JPanel memberForm = new JPanel();
+        memberNameField = new JTextField(10);
+        addMemberBtn = new JButton("Add Member");
+        memberForm.add(new JLabel("Name:"));
+        memberForm.add(memberNameField);
+        memberForm.add(addMemberBtn);
+        memberPanel.add(memberForm, BorderLayout.SOUTH);
+        addMemberBtn.addActionListener(e -> addMember());
+
+        tabs.add("Members", memberPanel);
+
+        
+        JPanel issuePanel = new JPanel();
+        JButton issueBtn = new JButton("Issue Book ID 1 to Member ID 1");
+        JButton returnBtn = new JButton("Return Book ID 1");
+        issuePanel.add(issueBtn);
+        issuePanel.add(returnBtn);
+        issueBtn.addActionListener(e -> issueBook(1, 1));
+        returnBtn.addActionListener(e -> returnBook(1));
+        tabs.add("Issue/Return", issuePanel);
+
+        add(tabs);
+        setVisible(true);
+    }
+
+   
+    private void loadBooks() {
+        try (Connection conn = DBConnection.getConnection()) {
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT * FROM books");
+
+            bookTable.setModel(new javax.swing.table.DefaultTableModel(
+                new Object[][] {},
+                new String[]{"ID", "Title", "Author", "Publisher", "Available"}
+            ));
+            javax.swing.table.DefaultTableModel model = (javax.swing.table.DefaultTableModel) bookTable.getModel();
+
+            while (rs.next()) {
+                model.addRow(new Object[] {
+                    rs.getInt("id"),
+                    rs.getString("title"),
+                    rs.getString("author"),
+                    rs.getString("publisher"),
+                    rs.getBoolean("available")
+                });
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+   
+    private void loadMembers() {
+        try (Connection conn = DBConnection.getConnection()) {
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT * FROM members");
+            memberList.clear();
+            while (rs.next()) {
+                memberList.addElement(rs.getString("name") + " (" + rs.getString("type") + ")");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+  
+    private void addBook() {
+        try (Connection conn = DBConnection.getConnection()) {
+            String sql = "INSERT INTO books (title, author, publisher, available) VALUES (?, ?, ?, true)";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, titleField.getText());
+            stmt.setString(2, authorField.getText());
+            stmt.setString(3, publisherField.getText());
+            stmt.executeUpdate();
+            JOptionPane.showMessageDialog(this, "Book added!");
+            loadBooks();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    private void addMember() {
+        try (Connection conn = DBConnection.getConnection()) {
+            String sql = "INSERT INTO members (name, type) VALUES (?, 'Student')";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, memberNameField.getText());
+            stmt.executeUpdate();
+            JOptionPane.showMessageDialog(this, "Member added!");
+            memberList.clear();
+            loadMembers();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+  
+    private void issueBook(int bookId, int memberId) {
+        try (Connection conn = DBConnection.getConnection()) {
+            String checkSql = "SELECT available FROM books WHERE id = ?";
+            PreparedStatement checkStmt = conn.prepareStatement(checkSql);
+            checkStmt.setInt(1, bookId);
+            ResultSet rs = checkStmt.executeQuery();
+
+            if (rs.next() && rs.getBoolean("available")) {
+                PreparedStatement insertStmt = conn.prepareStatement(
+                    "INSERT INTO transactions (book_id, member_id, issue_date) VALUES (?, ?, NOW())");
+                insertStmt.setInt(1, bookId);
+                insertStmt.setInt(2, memberId);
+                insertStmt.executeUpdate();
+
+                PreparedStatement updateStmt = conn.prepareStatement(
+                    "UPDATE books SET available = false WHERE id = ?");
+                updateStmt.setInt(1, bookId);
+                updateStmt.executeUpdate();
+                JOptionPane.showMessageDialog(this, "Book issued.");
+                loadBooks();
+            } else {
+                JOptionPane.showMessageDialog(this, "Book not available.");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+  
+    private void returnBook(int bookId) {
+        try (Connection conn = DBConnection.getConnection()) {
+            PreparedStatement transStmt = conn.prepareStatement(
+                "UPDATE transactions SET return_date = NOW() WHERE book_id = ? AND return_date IS NULL");
+            transStmt.setInt(1, bookId);
+            transStmt.executeUpdate();
+
+            PreparedStatement updateBook = conn.prepareStatement(
+                "UPDATE books SET available = true WHERE id = ?");
+            updateBook.setInt(1, bookId);
+            updateBook.executeUpdate();
+            JOptionPane.showMessageDialog(this, "Book returned.");
+            loadBooks();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        new LoginFrame();
+    }
+}
